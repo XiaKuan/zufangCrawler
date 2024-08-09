@@ -29,14 +29,27 @@ class BeiKeClient(AbstractApiClient):
         self.proxies = proxies
         self.timeout = timeout
         self.headers = headers
-        self._host = "https://edith.xiaohongshu.com"
-        self._domain = "https://www.xiaohongshu.com"
+        self._host = "hhttps://hz.zu.ke.com/zufang"
+        self._domain = "https://hz.zu.ke.com/zufang"
         self.IP_ERROR_STR = "网络连接异常，请检查网络设置或重启试试"
         self.IP_ERROR_CODE = 300012
         self.NOTE_ABNORMAL_STR = "笔记状态异常，请稍后查看"
         self.NOTE_ABNORMAL_CODE = -510001
         self.playwright_page = playwright_page
         self.cookie_dict = cookie_dict
+
+
+    async def _pre_headers(self, url: str, data=None) -> Dict:
+        """
+        请求头参数签名
+        Args:
+            url:
+            data:
+
+        Returns:
+
+        """
+        return self.headers
 
     async def request(self, method, url, **kwargs) -> Union[str, Any]:
         """
@@ -140,3 +153,9 @@ class BeiKeClient(AbstractApiClient):
         cookie_str, cookie_dict = utils.convert_cookies(await browser_context.cookies())
         self.headers["Cookie"] = cookie_str
         self.cookie_dict = cookie_dict
+
+    async def get_room_list(self, page: int):
+        uri = f"/pg{page}"
+        return await self.get(uri)
+
+

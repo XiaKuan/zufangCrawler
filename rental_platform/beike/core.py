@@ -101,50 +101,40 @@ class BeiKeCrawler(AbstractCrawler):
         if config.CRAWLER_MAX_NOTES_COUNT < xhs_limit_count:
             config.CRAWLER_MAX_NOTES_COUNT = xhs_limit_count
         start_page = config.START_PAGE
-        for keyword in config.KEYWORDS.split(","):
-            utils.logger.info(f"[BeiKeCrawler.search] Current search keyword: {keyword}")
-            page = 1
-            while (page - start_page + 1) * xhs_limit_count <= config.CRAWLER_MAX_NOTES_COUNT:
-                if page < start_page:
-                    utils.logger.info(f"[BeiKeCrawler.search] Skip page {page}")
-                    page += 1
-                    continue
-
-                # try:
-                #     utils.logger.info(f"[BeiKeCrawler.search] search xhs keyword: {keyword}, page: {page}")
-                #     note_id_list: List[str] = []
-                #     notes_res = await self.xhs_client.get_note_by_keyword(
-                #         keyword=keyword,
-                #         page=page,
-                #         sort=SearchSortType(config.SORT_TYPE) if config.SORT_TYPE != '' else SearchSortType.GENERAL,
-                #     )
-                #     utils.logger.info(f"[BeiKeCrawler.search] Search notes res:{notes_res}")
-                #     if not notes_res or not notes_res.get('has_more', False):
-                #         utils.logger.info("No more content!")
-                #         break
-                #     semaphore = asyncio.Semaphore(config.MAX_CONCURRENCY_NUM)
-                #     task_list = [
-                #         self.get_note_detail(
-                #             note_id=post_item.get("id"),
-                #             xsec_source=post_item.get("xsec_source"),
-                #             xsec_token=post_item.get("xsec_token"),
-                #             semaphore=semaphore
-                #         )
-                #         for post_item in notes_res.get("items", {})
-                #         if post_item.get('model_type') not in ('rec_query', 'hot_query')
-                #     ]
-                #     note_details = await asyncio.gather(*task_list)
-                #     for note_detail in note_details:
-                #         if note_detail:
-                #             await xhs_store.update_xhs_note(note_detail)
-                #             await self.get_notice_media(note_detail)
-                #             note_id_list.append(note_detail.get("note_id"))
-                #     page += 1
-                #     utils.logger.info(f"[BeiKeCrawler.search] Note details: {note_details}")
-                #     await self.batch_get_note_comments(note_id_list)
-                # except DataFetchError:
-                #     utils.logger.error("[BeiKeCrawler.search] Get note detail error")
-                #     break
+        for pg in range(100):
+            utils.logger.info(f"[BeiKeCrawler.search] Current page: {pg}")
+            try:
+                note_id_list: List[str] = []
+                notes_res = await self.beike_client.get_room_list(
+                    page=page,
+                )
+                utils.logger.info(f"[BeiKeCrawler.search] Search notes res:{notes_res}")
+                if not notes_res or not notes_res.get('has_more', False):
+                    utils.logger.info("No more content!")
+                    break
+                semaphore = asyncio.Semaphore(config.MAX_CONCURRENCY_NUM)
+                task_list = [
+                    self.get_note_detail(
+                        note_id=post_item.get("id"),
+                        xsec_source=post_item.get("xsec_source"),
+                        xsec_token=post_item.get("xsec_token"),
+                        semaphore=semaphore
+                    )
+                    for post_item in notes_res.get("items", {})
+                    if post_item.get('model_type') not in ('rec_query', 'hot_query')
+                ]
+                note_details = await asyncio.gather(*task_list)
+                for note_detail in note_details:
+                    if note_detail:
+                        await xhs_store.update_xhs_note(note_detail)
+                        await self.get_notice_media(note_detail)
+                        note_id_list.append(note_detail.get("note_id"))
+                page += 1
+                utils.logger.info(f"[BeiKeCrawler.search] Note details: {note_details}")
+                await self.batch_get_note_comments(note_id_list)
+            except DataFetchError:
+                utils.logger.error("[BeiKeCrawler.search] Get note detail error")
+                break
     #
     # async def get_creators_and_notes(self) -> None:
     #     """Get creator's notes and retrieve their comment information."""
@@ -258,23 +248,23 @@ class BeiKeCrawler(AbstractCrawler):
     #     }
     #     return playwright_proxy, httpx_proxy
     #
-    # async def create_xhs_client(self, httpx_proxy: Optional[str]) -> BeiKeClient:
-    #     """Create xhs client"""
-    #     utils.logger.info("[BeiKeCrawler.create_xhs_client] Begin create xiaohongshu API client ...")
-    #     cookie_str, cookie_dict = utils.convert_cookies(await self.browser_context.cookies())
-    #     xhs_client_obj = BeiKeClient(
-    #         proxies=httpx_proxy,
-    #         headers={
-    #             "User-Agent": self.user_agent,
-    #             "Cookie": cookie_str,
-    #             "Origin": "https://www.xiaohongshu.com",
-    #             "Referer": "https://www.xiaohongshu.com",
-    #             "Content-Type": "application/json;charset=UTF-8"
-    #         },
-    #         playwright_page=self.context_page,
-    #         cookie_dict=cookie_dict,
-    #     )
-    #     return xhs_client_obj
+    async def create_xhs_client(self, httpx_proxy: Optional[str]) -> BeiKeClient:
+        """Create xhs client"""
+        utils.logger.info("[BeiKeCrawler.create_xhs_client] Begin create xiaohongshu API client ...")
+        cookie_str, cookie_dict = utils.convert_cookies(await self.browser_context.cookies())
+        xhs_client_obj = BeiKeClient(
+            proxies=httpx_proxy,
+            headers={
+                "User-Agent": self.user_agent,
+                "Cookie": cookie_str,
+                "Origin": "https://hz.zu.ke.com",
+                "Referer": "https://hz.zu.ke.com",
+                "Content-Type": "application/json;charset=UTF-8"
+            },
+            playwright_page=self.context_page,
+            cookie_dict=cookie_dict,
+        )
+        return xhs_client_obj
     #
     # async def launch_browser(
     #         self,

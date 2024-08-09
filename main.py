@@ -5,11 +5,13 @@
 
 import asyncio
 import sys
+from rental_platform.beike import BeiKeCrawler
 
 
 
 async def main():
-    return
+    await BeiKeCrawler().start()
+
 
 if __name__ == '__main__':
     try:
